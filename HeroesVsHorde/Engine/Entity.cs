@@ -20,11 +20,12 @@ namespace HeroesVsHorde.Engine
         protected Dictionary<string, Controller> controllers;
         public Entity(IEnumerable<Controller> controllers)
         {
-            this.controllers = new List<Controller>(controllers);
+            foreach (Controller c in controllers)
+                this.controllers[c.Type] = c;
         }
         public Entity()
         {
-            this.controllers = new List<Controller>();
+            this.controllers = new Dictionary<string, Controller>();
         }
     }
 }

@@ -19,11 +19,17 @@ namespace HeroesVsHorde.Engine
         protected Dictionary<int, List<DrawController>> drawControllers;
         protected List<Entity> ents;
 
-        public sealed void Draw(GameTime gameTime)
+        /// <summary>
+        /// Call this from your games Draw method
+        /// Draws the code to the screen. Not designed to be overriden.
+        /// </summary>
+        public void Draw(GameTime gameTime)
         {
             List<DrawController> dcCurrents;
             ManualResetEvent[] mrEvents;
-            foreach (int key in drawControllers.Keys.Sort())
+            var keys = new List<int>(drawControllers.Keys);
+            keys.Sort();
+            foreach (int key in keys)
             {
                 dcCurrents = drawControllers[key];
                 mrEvents = new ManualResetEvent[dcCurrents.Count];
@@ -49,7 +55,12 @@ namespace HeroesVsHorde.Engine
             }
         }
 
-        public sealed void Update(GameTime gameTime)
+        /// <summary>
+        /// Call this from your games Update method
+        /// Updates all controllers. Not designed to be overridde
+        /// </summary>
+        /// <param name="gameTime"></param>
+        public void Update(GameTime gameTime)
         {
             var mrEvents = new ManualResetEvent[ents.Count];
             for (int i = 0; i < mrEvents.Length; i++)
