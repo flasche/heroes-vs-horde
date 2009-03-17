@@ -9,23 +9,12 @@ namespace HeroesVsHorde.Engine
     /// <summary>
     /// Controls a certain aspect of entity behaviour
     /// </summary>
-    abstract class Controller
+    interface IController
     {
-        public abstract string Type{get; }
-
-        protected Entity ent;
-
-        public Controller(Entity ent)
-        {
-            this.ent = ent;
-        }
-
-        public Controller() { }
-
-        public abstract void UpdateEnt(GameTime gameTime);
+        void UpdateEnt(GameTime gameTime);
     }
 
-    abstract class DrawController : Controller
+    abstract class DrawController : IController
     {
         /// <summary>
         /// Defines the order in which this has its Draw Method called.
@@ -33,5 +22,17 @@ namespace HeroesVsHorde.Engine
         /// </summary>
         public int DrawOrder;
         public abstract void Draw(GameTime gameTime);
+        public abstract void UpdateEnt(GameTime gameTime);
     }
+
+    class DrawControllerComparer : Comparer<DrawController>
+    {
+        public static DrawControllerComparer Instance = new DrawControllerComparer();
+        public override int Compare(DrawController x, DrawController y)
+        {
+            if (x.DrawOrder == y.DrawOrder) return 0;
+            return (x.DrawOrder > y.DrawOrder ? 1 : -1);
+        }
+    }
+
 }

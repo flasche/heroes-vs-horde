@@ -12,12 +12,19 @@ namespace HeroesVsHorde.Engine
     /// </summary>
     class Manager
     {
-        protected List<Controller> controllers;
-        /// <summary>
-        /// The int is the draw level, which makes it easier to draw things in order.
-        /// </summary>
-        protected Dictionary<int, List<DrawController>> drawControllers;
-        protected List<Entity> ents;
+        private class ThreadDataStore
+        {
+            public GameTime GT;
+            public int Count;
+        }
+
+        private class DrawThreadDataStore : ThreadDataStore
+        {
+            public DrawController currentDC;
+        }
+
+
+        public Screen CurrentScreen;
 
         /// <summary>
         /// Call this from your games Draw method
@@ -25,34 +32,38 @@ namespace HeroesVsHorde.Engine
         /// </summary>
         public void Draw(GameTime gameTime)
         {
-            List<DrawController> dcCurrents;
-            ManualResetEvent[] mrEvents;
-            var keys = new List<int>(drawControllers.Keys);
-            keys.Sort();
-            foreach (int key in keys)
-            {
-                dcCurrents = drawControllers[key];
-                mrEvents = new ManualResetEvent[dcCurrents.Count];
-                for (int i = 0; i < mrEvents.Length; i++)
-                    mrEvents[i] = new ManualResetEvent(false);
+            /* TODO: Replace the main loop here with some sort of while loop
+             * meaning DrawControllers doesn't get accessed twice.
+             */
+            int currentLayer = CurrentScreen.DrawControllers[0].DrawOrder;
+            DrawController currentDC;
 
-                for (int i = 0; i < dcCurrents.Count; i++)
-                {
-                    ThreadPool.QueueUserWorkItem(
-                        new WaitCallback(
-                            (object o) =>
-                            {
-                                dcCurrents[i].Draw((GameTime)o);
-                                mrEvents[i].Set();
-                            }
-                    ), (object)gameTime); //compiler should make temp variable
-                    //for gametime, so its not cast over and over and over again
-                    //can probably just pull in gameTime from the scope, but
-                    //don't wanna try it just yet!
-                }
-                WaitHandle.WaitAll(mrEvents); //Lets the current layer finish
-                //drawing before the next happens. Hope it works!!
+            //TODO: This is space wasteful - there should be a way of improving it.
+            var mrEvents = new ManualResetEvent[CurrentScreen.DrawControllers.Count];
+            for (int i = 0; i < mrEvents.Length; i++)
+                mrEvents[i] = new ManualResetEvent(false);
+
+            for (int i = 0; i < CurrentScreen.DrawControllers.Count; i++)
+            {
+                currentDC = CurrentScreen.DrawControllers[i];
+                if (currentDC.DrawOrder != currentLayer)
+                    WaitHandle.WaitAll(mrEvents); //Let the current layer draw
+
+                ThreadPool.QueueUserWorkItem(
+                    new WaitCallback(
+                        (object o) =>
+                        {
+                            var Data = (ThreadDataStore)o;
+                            currentDC.Draw(Data.GT);
+                            mrEvents[Data.Count].Set();
+                        }
+                ), (object)new ThreadDataStore{GT = gameTime, Count = i}); //compiler should make temp variable
+                //for gametime, so its not cast over and over and over again
+                //can probably just pull in gameTime from the scope, but
+                //don't wanna try it just yet!
             }
+
+            WaitHandle.WaitAll(mrEvents); //Finish drawing before finishing.
         }
 
         /// <summary>
@@ -62,7 +73,8 @@ namespace HeroesVsHorde.Engine
         /// <param name="gameTime"></param>
         public void Update(GameTime gameTime)
         {
-            var mrEvents = new ManualResetEvent[ents.Count];
+            List<IController> controllers = CurrentScreen.Controllers;
+            var mrEvents = new ManualResetEvent[controllers.Count];
             for (int i = 0; i < mrEvents.Length; i++)
                 mrEvents[i] = new ManualResetEvent(false);
 
@@ -72,13 +84,14 @@ namespace HeroesVsHorde.Engine
                     new WaitCallback(
                         (object o) =>
                         {
-                            controllers[i].UpdateEnt((GameTime)o);
-                            mrEvents[i].Set();
+                            var Data = (ThreadDataStore)o;
+                            controllers[Data.Count].UpdateEnt(Data.GT);
+                            mrEvents[Data.Count].Set();
                         }
-                ));
+                ), (object)new ThreadDataStore { GT = gameTime, Count = i });
             }
             WaitHandle.WaitAll(mrEvents);
-        }        
+        }
     }
 }
    
